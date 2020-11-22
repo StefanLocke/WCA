@@ -273,10 +273,12 @@ public class WCAv2 extends binMeta {
 		public void moveStream(Stream s) {
 			Data start = s.data;
 			Data data = start.randomSelectInNeighbour(2);
-			while (obj.value(data) > obj.value(s.data)) {
+			while (obj.value(data) > obj.value(start)) {
 				data = start.randomSelectInNeighbour(2);
 			}
+			System.out.println("this "+ obj.value(start) + " gets " + obj.value(data));
 			s.data = data;
+			
 
 		}
 
