@@ -2,9 +2,10 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.Semaphore;
 
 public class WCAv2 extends binMeta {
-
+	private int MAX_TRIES = 20;
 	public WCAv2(Data startPoint, Objective Obj, long maxTime) {
 		idcount = 0;
 		this.metaName = "Water cycle Algorithm";
@@ -17,13 +18,14 @@ public class WCAv2 extends binMeta {
 		threadsRan = 0;
 
 	}
-
+	Objective obj;
 	int threadsRan;
 	private int idcount;
 	private int Nsr;
 	private int Npop;
 	List<Stream> pop;
 	List<Thread> workers;
+	Semaphore S = new Semaphore(1);
 
 	public int newId() {
 		return idcount++;
@@ -134,20 +136,6 @@ public class WCAv2 extends binMeta {
 // MAIN LOOP // -------------------------------------------------------------------------------	
 //---------------------------------------------------------------------------------------------		
 
-	private void moveStream(Stream s) {
-		/*
-		 * Random rand = new Random(); double d = obj.value(s.data) + (rand.nextDouble()
-		 * * 2 * (obj.value(river.data) - obj.value(s.data)) ); Data newdata =
-		 * getDataOfValue(d, 0.1); s.data = newdata;
-		 */
-		Data start = s.data;
-		Data data = start.randomSelectInNeighbour(2);
-		while (obj.value(data) > obj.value(s.data)) {
-			data = start.randomSelectInNeighbour(2);
-		}
-		s.data = data;
-	}
-
 	public void moveStreams() {
 		for (Stream s : pop) {
 			if (s.type == streamType.River || s.type == streamType.Sea) {
@@ -188,12 +176,6 @@ public class WCAv2 extends binMeta {
 		}
 	}
 
-	
-	
-	
-	
-	
-	
 	private void moveRivers() {
 		for (Stream s : pop) {
 			if (s.type == streamType.River) {
@@ -241,18 +223,44 @@ public class WCAv2 extends binMeta {
 		Stream s;
 
 		public void run() {
-			moveStream(s);
+			this.moveStream(s);
 		}
 
-		public void moveStream(Stream s) {
-			for (Stream children : s.children) {
-				Data start = children.data;
-				Data data = start.randomSelectInNeighbour(2);
-				while (obj.value(data) > obj.value(children.data)) {
-					data = start.randomSelectInNeighbour(2);
+		public void moveStream(Stream parent) {
+			for (Stream s : parent.children) {
+				try {
+					Data start = s.data;
+				
+					S.acquire();
+					
+					double startValue = obj.value(start);
+					S.release();
+					Data data = start.randomSelectInNeighbour(2);
+					S.acquire();
+					double dataValue = obj.value(data);
+					S.release();
+					int tries = 0;
+					while (dataValue > startValue && tries < MAX_TRIES) {
+						data = start.randomSelectInNeighbour(2);
+						S.acquire();
+						dataValue = obj.value(data);
+						S.release();
+						tries++;
+					}
+					if (dataValue > startValue)
+					{
+						System.out.println("this "+ startValue + " gets " + dataValue + " Bad Sample after " + tries + " tries");
+					}
+					else {
+						System.out.println("this "+ startValue + " gets " + dataValue);
+					}
+					s.data = data;
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
 				}
-				children.data = data;
 			}
+			
 
 		}
 
@@ -263,24 +271,45 @@ public class WCAv2 extends binMeta {
 			super();
 			this.s = s;
 		}
-
 		Stream s;
 
 		public void run() {
-			moveStream(s);
+			this.moveStream(s);
 		}
 
 		public void moveStream(Stream s) {
+			try {
 			Data start = s.data;
+			S.acquire();
+			double startValue = obj.value(start);
+			S.release();
 			Data data = start.randomSelectInNeighbour(2);
-			while (obj.value(data) > obj.value(start)) {
+			S.acquire();
+			double dataValue = obj.value(data);
+			S.release();
+			int tries = 0;
+			while (dataValue > startValue && tries < MAX_TRIES) {
 				data = start.randomSelectInNeighbour(2);
+				S.acquire();
+				dataValue = obj.value(data);
+				S.release();
+				tries++;
 			}
-			System.out.println("this "+ obj.value(start) + " gets " + obj.value(data));
+			if (dataValue > startValue)
+			{
+				System.out.println("this "+ startValue + " gets " + dataValue + " Bad Sample after " + tries + " tries");
+			}
+			else {
+				System.out.println("this "+ startValue + " gets " + dataValue);
+			}
 			s.data = data;
-			
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 
 		}
+		
 
 	}
 
@@ -364,7 +393,7 @@ public class WCAv2 extends binMeta {
 		bm.designateAll();
 		bm.assign();
 		System.out.println("Before all moving and swapping \n" + bm.toString());
-		for (int i = 0; i < 100; i++) {
+		for (int i = 0; i < 1000; i++) {
 			System.out.println("Iteration " + i);
 			bm.moveStreams();
 			System.out.println("Moved Streams in Iteration " + i);
