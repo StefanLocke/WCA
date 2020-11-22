@@ -245,27 +245,6 @@ public class WCAv2 extends binMeta {
 		return -1;
 	}
 	
-	private class Worker extends Thread {
-		public Worker(Stream s) {
-			super();
-			this.s=s;
-		}
-		
-		Stream s;
-		public void run() {
-			moveStream(s);
-		}
-		
-		public void moveStream(Stream s) {
-			Data start = s.data;
-			Data data = start.randomSelectInNeighbour(2);
-			while (obj.value(data) > obj.value(s.data)) {
-				data = start.randomSelectInNeighbour(2);
-			}
-			s.data = data;
-		}
-		
-	}
 	
 	
 	
