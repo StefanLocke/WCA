@@ -364,7 +364,7 @@ public class WCAv2 extends binMeta {
 		bm.designateAll();
 		bm.assign();
 		System.out.println("Before all moving and swapping \n" + bm.toString());
-		for (int i = 0;i < 500;i++) {
+		for (int i = 0;i < 100;i++) {
 			System.out.println("Iteration " + i);
 			bm.moveStreams();
 			bm.swapStreams();
