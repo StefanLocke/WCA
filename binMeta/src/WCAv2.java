@@ -1,11 +1,21 @@
+import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.Semaphore;
+import java.lang.*;
 
 public class WCAv2 extends binMeta {
 	private int MAX_TRIES = 20;
+	
+	
+	/**
+	 * 
+	 * @param startPoint
+	 * @param Obj
+	 * @param might lock itself if set too long.
+	 */
 	public WCAv2(Data startPoint, Objective Obj, long maxTime) {
 		idcount = 0;
 		this.metaName = "Water cycle Algorithm";
@@ -20,18 +30,18 @@ public class WCAv2 extends binMeta {
 	}
 	Objective obj;
 	int threadsRan;
-	private int idcount;
-	private int Nsr;
-	private int Npop;
-	List<Stream> pop;
-	List<Thread> workers;
-	Semaphore S = new Semaphore(1);
+	private int idcount;  // a counter for assigning ids
+	private int Nsr;  //number of seas and rivers
+	private int Npop; //total number of streams
+	List<Stream> pop; //list of all the streams
+	List<Thread> workers; //list of all the workers
+	Semaphore S = new Semaphore(1); //semaphore for accesing obj
 
-	public int newId() {
+	public int newId() { // id assigner
 		return idcount++;
 	}
 
-	public void generate(int numberOfSeaAndRivers, int numberOfTotal, double dMax) {
+	public void generate(int numberOfSeaAndRivers, int numberOfTotal, double dMax) { //generates a ranom sample of streams and sorts them to rivers or seas
 		this.Nsr = numberOfSeaAndRivers;
 		this.Npop = numberOfTotal;
 		pop = new LinkedList<Stream>();
@@ -49,8 +59,14 @@ public class WCAv2 extends binMeta {
 		}
 
 	}
+	
+	
+	//--------------------------------------------------------------------------------
+	// DESIGNATIONS OF NUMBER OF STREAMS PER EACH RIVERS
+	// -------------------------------------------------------------------------------	
+		
 
-	private int NstreamsDesignated;
+	private int NstreamsDesignated;//number of designated streams if == number of streams, it means all streams have been designated
 
 	public void designateAll() {
 		NstreamsDesignated = 0;
@@ -79,7 +95,7 @@ public class WCAv2 extends binMeta {
 		}
 	}
 
-	public int designateStreams(Stream rs) {
+	private int designateStreams(Stream rs) {  //designates a number of streams for a given river or sea
 		double Cn = obj.value(rs.data) - obj.value(pop.get(Nsr).data);
 		double sum = 0;
 		for (int i = 0; i < Nsr; i++) {
@@ -90,6 +106,11 @@ public class WCAv2 extends binMeta {
 		return (int) NSn;
 	}
 
+	//--------------------------------------------------------------------------------
+	// ASSIGNMENTS OF STREAMS TO RIVERS
+	// -------------------------------------------------------------------------------	
+	
+	
 	private void assignRandomUnassignedTo(Stream r) {
 		List<Stream> onlyStreams = new LinkedList<>(pop);
 
@@ -136,6 +157,12 @@ public class WCAv2 extends binMeta {
 // MAIN LOOP // -------------------------------------------------------------------------------	
 //---------------------------------------------------------------------------------------------		
 
+	
+	//---------------------------------------------------------------------------------------------		
+	// moving the streams // -------------------------------------------------------------------------------	
+	//---------------------------------------------------------------------------------------------			
+	
+	
 	public void moveStreams() {
 		for (Stream s : pop) {
 			if (s.type == streamType.River || s.type == streamType.Sea) {
@@ -156,6 +183,10 @@ public class WCAv2 extends binMeta {
 		}
 		workers.clear();
 	}
+	
+	//---------------------------------------------------------------------------------------------		
+	// swapping the streams // -------------------------------------------------------------------------------	
+	//---------------------------------------------------------------------------------------------			
 
 	public void swapStreams(Stream river) {
 		Data tmpdata = river.children.get(0).data;
@@ -175,6 +206,9 @@ public class WCAv2 extends binMeta {
 			}
 		}
 	}
+	//---------------------------------------------------------------------------------------------		
+	// moving the rivers // -------------------------------------------------------------------------------	
+	//---------------------------------------------------------------------------------------------			
 
 	private void moveRivers() {
 		for (Stream s : pop) {
@@ -196,6 +230,9 @@ public class WCAv2 extends binMeta {
 		}
 		workers.clear();
 	}
+	//---------------------------------------------------------------------------------------------		
+	// swapping the rivers // -------------------------------------------------------------------------------	
+	//---------------------------------------------------------------------------------------------				
 
 	private void swapRivers() {
 		pop.sort(null);
@@ -214,7 +251,12 @@ public class WCAv2 extends binMeta {
 		return -1;
 	}
 
-	private class StreamWorker extends Thread {
+	
+	
+	//---------------------------------------------------------------------------------------------		
+	// WORKERS CLASSES // -------------------------------------------------------------------------------	
+	//---------------------------------------------------------------------------------------------			
+	private class StreamWorker extends Thread {//THIS WORKER moves the streams, one worker per river or sea to work on that rivers streams
 		public StreamWorker(Stream s) {
 			super();
 			this.s = s;
@@ -240,20 +282,20 @@ public class WCAv2 extends binMeta {
 					double dataValue = obj.value(data);
 					S.release();
 					int tries = 0;
-					while (dataValue > startValue && tries < MAX_TRIES) {
+					while (dataValue > startValue/* &&  tries < MAX_TRIES*/) { // UN COMMENT THIS TO HELP WITH GETTING STUCK WHEN TOO HIGH TIMEOUT
 						data = start.randomSelectInNeighbour(2);
 						S.acquire();
 						dataValue = obj.value(data);
 						S.release();
 						tries++;
-					}
+					}/*
 					if (dataValue > startValue)
 					{
 						System.out.println("this "+ startValue + " gets " + dataValue + " Bad Sample after " + tries + " tries");
 					}
 					else {
 						System.out.println("this "+ startValue + " gets " + dataValue);
-					}
+					}*/
 					s.data = data;
 				} catch (InterruptedException e) {
 					// TODO Auto-generated catch block
@@ -266,7 +308,7 @@ public class WCAv2 extends binMeta {
 
 	}
 
-	private class RiverWorker extends Thread {
+	private class RiverWorker extends Thread {//this worker moves rivers, one thread per river
 		public RiverWorker(Stream s) {
 			super();
 			this.s = s;
@@ -288,20 +330,20 @@ public class WCAv2 extends binMeta {
 			double dataValue = obj.value(data);
 			S.release();
 			int tries = 0;
-			while (dataValue > startValue && tries < MAX_TRIES) {
+			while (dataValue > startValue/* && tries < MAX_TRIES*/) {
 				data = start.randomSelectInNeighbour(2);
 				S.acquire();
 				dataValue = obj.value(data);
 				S.release();
 				tries++;
 			}
-			if (dataValue > startValue)
+			/*if (dataValue > startValue)
 			{
 				System.out.println("this "+ startValue + " gets " + dataValue + " Bad Sample after " + tries + " tries");
 			}
 			else {
 				System.out.println("this "+ startValue + " gets " + dataValue);
-			}
+			}*/
 			s.data = data;
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
@@ -315,10 +357,40 @@ public class WCAv2 extends binMeta {
 
 	@Override
 	public void optimize() {
-		// TODO Auto-generated method stub
+		
+		generate(10, 20, 0.0);
+		designateAll();
+		assign();
+		System.out.println("Start system : \n" + toString());
+		Date d = new Date();
+		int i = 0;
+		long startTime = System.currentTimeMillis();
+
+		while (System.currentTimeMillis() - startTime < maxTime) {
+			moveStreams();
+			swapStreams();
+			moveRivers();
+			swapRivers();
+			i++;
+			//System.out.println(toString());//UNCOMMENT IF YOU WANT TO SEE PROGRESSS
+		}
+		/*UNCOMMENT THIS AND COMMENT ON TOP TO NOT USE TIMER BUT ITERATIONS AND CHOOOSE NUMBER OF ITERATIONS WITH THE FOR CONDITIONS
+		for (i = 0;i < 300;i++) {
+			moveStreams();
+			swapStreams();
+			moveRivers();
+			swapRivers();
+			//System.out.println(toString());//UNCOMMENT IF YOU WANT TO SEE PROGRESSS
+		}
+		*/
+		System.out.println("End system : \n" + toString() + "\n With " + i + " Iterations");
+		
+		
 
 	}
-
+	//---------------------------------------------------------------------------------------------		
+	// STREAM CLASSSES // -------------------------------------------------------------------------------	
+	//---------------------------------------------------------------------------------------------			
 	enum streamType {
 		River, Sea, Stream
 	}
@@ -388,25 +460,8 @@ public class WCAv2 extends binMeta {
 
 	public static void main(String[] args) {
 		Objective obj = new ColorPartition(20, 20);
-		WCAv2 bm = new WCAv2(obj.solutionSample(), obj, 100);
-		bm.generate(10, 20, 0.0);
-		bm.designateAll();
-		bm.assign();
-		System.out.println("Before all moving and swapping \n" + bm.toString());
-		for (int i = 0; i < 1000; i++) {
-			System.out.println("Iteration " + i);
-			bm.moveStreams();
-			System.out.println("Moved Streams in Iteration " + i);
-			bm.swapStreams();
-			System.out.println("swapped Streams in Iteration " + i);
-			bm.moveRivers();
-			System.out.println("Moved Rivers in Iteration " + i);
-			bm.swapRivers();
-			System.out.println("swapped Rivers in Iteration " + i);
-			System.out.println(bm.toString());
-		}
-		System.out.println(bm.toString());
-		System.out.println("threads ran : " + bm.threadsRan);
+		WCAv2 bm = new WCAv2(obj.solutionSample(), obj, 2000);
+		bm.optimize();
 
 	}
 
