@@ -16,12 +16,16 @@ public class WCAv2 extends binMeta {
 		this.obj = Obj;
 		this.maxTime = maxTime;
 		this.objValue = this.obj.value(this.solution);
+		workers = new LinkedList<>();;
+		threadsRan = 0;
 		
 	}
+	int threadsRan;
 	private int idcount;
 	private int Nsr;
 	private int Npop;
 	List<Stream>pop;
+	List<Worker> workers;
 	
 	public int newId() {
 		return idcount++;
@@ -180,8 +184,24 @@ public class WCAv2 extends binMeta {
 		for (Stream s:pop) {
 			if (s.type == streamType.River || s.type == streamType.Sea) {
 				for (Stream strm :s.children) {
-					moveStream(strm);
+					Worker w = new Worker(strm);
+					workers.add(w);
+					w.start();
 				}
+			}
+		}
+		
+		
+		Iterator<Worker> it = workers.iterator();
+		while (it.hasNext()) {
+			Worker w = it.next();
+			try {
+				w.join();
+				it.remove();
+				threadsRan++;
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
 		}
 	}
@@ -205,7 +225,7 @@ public class WCAv2 extends binMeta {
 		}
 	}
 	
-	private void moveRivers(Stream river, Stream sea) {
+	private void moveRivers(Stream river) {
 		/*Random rand = new Random();
 		double d = obj.value(river.data) + (rand.nextDouble() * 2 * (obj.value(sea.data) - obj.value(river.data)) );
 		Data newdata = getDataOfValue(d, 0.1);
@@ -222,7 +242,22 @@ public class WCAv2 extends binMeta {
 	private void moveRivers() {
 		for (Stream s:pop) {
 			if (s.type == streamType.River) {
-				moveRivers(s, pop.get(0));
+				Worker w = new Worker(s);
+				workers.add(w);
+				w.start();
+			}
+		}
+		
+		Iterator<Worker> it = workers.iterator();
+		while (it.hasNext()) {
+			Worker w = it.next();
+			try {
+				w.join();
+				it.remove();
+				threadsRan++;
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
 		}
 	}
@@ -252,6 +287,23 @@ public class WCAv2 extends binMeta {
 		}
 		
 		Stream s;
+		public void run() {
+			moveStream(s);
+		}
+		
+		public void moveStream(Stream s) {
+			Data start = s.data;
+			Data data = start.randomSelectInNeighbour(2);
+			while (obj.value(data) > obj.value(s.data)) {
+				data = start.randomSelectInNeighbour(2);
+			}
+			s.data = data;
+		}
+		
+	}
+	
+	private class Worker2 extends Thread {	
+		public Stream s;
 		public void run() {
 			moveStream(s);
 		}
@@ -358,13 +410,13 @@ public class WCAv2 extends binMeta {
 		return s;
 	}
 	public static void main(String[] args) {
-		Objective obj = new ColorPartition(20,20);
+		Objective obj = new ColorPartition(10,10);
 		WCAv2 bm = new WCAv2(obj.solutionSample(), obj, 100);
 		bm.generate(10,20,0.0);
 		bm.designateAll();
 		bm.assign();
 		System.out.println("Before all moving and swapping \n" + bm.toString());
-		for (int i = 0;i < 500;i++) {
+		for (int i = 0;i < 10;i++) {
 			System.out.println("Iteration " + i);
 			bm.moveStreams();
 			bm.swapStreams();
@@ -372,6 +424,8 @@ public class WCAv2 extends binMeta {
 			bm.swapRivers();
 			System.out.println(bm.toString());
 		}
+		System.out.println(bm.toString());
+		System.out.println("threads ran : " + bm.threadsRan);
 		
 	}
 	
