@@ -5,7 +5,7 @@ import java.util.Random;
 
 public class WCA extends binMeta {
 
-	
+	// DO NOT USE THIS VERSIOOONN
 	public final int C = 2;
 	public WCA(Data startPoint, Objective Obj, long maxTime) {
 

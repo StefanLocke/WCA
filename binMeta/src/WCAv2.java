@@ -7,7 +7,7 @@ import java.util.concurrent.Semaphore;
 import java.lang.*;
 
 public class WCAv2 extends binMeta {
-	private int MAX_TRIES = 20;
+	private int MAX_TRIES = 2000;
 	
 	
 	/**
@@ -26,16 +26,18 @@ public class WCAv2 extends binMeta {
 		workers = new LinkedList<>();
 		;
 		threadsRan = 0;
-
+		generate(10, 20, 0.0);
+		designateAll();
+		assign();
 	}
 	Objective obj;
-	int threadsRan;
+	int threadsRan; // a counter for the amount of child treads completed
 	private int idcount;  // a counter for assigning ids
 	private int Nsr;  //number of seas and rivers
 	private int Npop; //total number of streams
 	List<Stream> pop; //list of all the streams
 	List<Thread> workers; //list of all the workers
-	Semaphore S = new Semaphore(1); //semaphore for accesing obj
+	Semaphore S = new Semaphore(1); //semaphore for accessing obj (because of the way certain obj are coded)
 
 	public int newId() { // id assigner
 		return idcount++;
@@ -256,7 +258,8 @@ public class WCAv2 extends binMeta {
 	//---------------------------------------------------------------------------------------------		
 	// WORKERS CLASSES // -------------------------------------------------------------------------------	
 	//---------------------------------------------------------------------------------------------			
-	private class StreamWorker extends Thread {//THIS WORKER moves the streams, one worker per river or sea to work on that rivers streams
+	
+	private class StreamWorker extends Thread {//THIS WORKER moves the streams, one worker per river or sea to work on that river's or sea's streams
 		public StreamWorker(Stream s) {
 			super();
 			this.s = s;
@@ -277,13 +280,13 @@ public class WCAv2 extends binMeta {
 					
 					double startValue = obj.value(start);
 					S.release();
-					Data data = start.randomSelectInNeighbour(2);
+					Data data = start.randomSelectInNeighbour(1);
 					S.acquire();
 					double dataValue = obj.value(data);
 					S.release();
 					int tries = 0;
-					while (dataValue > startValue/* &&  tries < MAX_TRIES*/) { // UN COMMENT THIS TO HELP WITH GETTING STUCK WHEN TOO HIGH TIMEOUT
-						data = start.randomSelectInNeighbour(2);
+					while (dataValue > startValue &&  tries < MAX_TRIES) { // UN COMMENT THIS TO HELP WITH GETTING STUCK WHEN TOO HIGH TIMEOUT
+						data = start.randomSelectInNeighbour(1);
 						S.acquire();
 						dataValue = obj.value(data);
 						S.release();
@@ -296,7 +299,10 @@ public class WCAv2 extends binMeta {
 					else {
 						System.out.println("this "+ startValue + " gets " + dataValue);
 					}*/
-					s.data = data;
+					if (tries < MAX_TRIES) {
+						s.data = data;
+					}
+					
 				} catch (InterruptedException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -325,26 +331,30 @@ public class WCAv2 extends binMeta {
 			S.acquire();
 			double startValue = obj.value(start);
 			S.release();
-			Data data = start.randomSelectInNeighbour(2);
+			Data data = start.randomSelectInNeighbour(1);
 			S.acquire();
 			double dataValue = obj.value(data);
 			S.release();
 			int tries = 0;
-			while (dataValue > startValue/* && tries < MAX_TRIES*/) {
-				data = start.randomSelectInNeighbour(2);
+			while (dataValue > startValue && tries < MAX_TRIES) {
+				data = start.randomSelectInNeighbour(1);
 				S.acquire();
 				dataValue = obj.value(data);
 				S.release();
 				tries++;
 			}
-			/*if (dataValue > startValue)
+			/* DEBBUGING CODE
+			if (dataValue > startValue)
 			{
 				System.out.println("this "+ startValue + " gets " + dataValue + " Bad Sample after " + tries + " tries");
 			}
 			else {
 				System.out.println("this "+ startValue + " gets " + dataValue);
-			}*/
-			s.data = data;
+			}
+			*/
+			if (tries < MAX_TRIES) {
+				s.data = data;
+			}
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -358,9 +368,7 @@ public class WCAv2 extends binMeta {
 	@Override
 	public void optimize() {
 		
-		generate(10, 20, 0.0);
-		designateAll();
-		assign();
+		
 		System.out.println("Start system : \n" + toString());
 		Date d = new Date();
 		int i = 0;
@@ -372,6 +380,7 @@ public class WCAv2 extends binMeta {
 			moveRivers();
 			swapRivers();
 			i++;
+			//System.out.println("iteration " + i);
 			//System.out.println(toString());//UNCOMMENT IF YOU WANT TO SEE PROGRESSS
 		}
 		/*UNCOMMENT THIS AND COMMENT ON TOP TO NOT USE TIMER BUT ITERATIONS AND CHOOOSE NUMBER OF ITERATIONS WITH THE FOR CONDITIONS
@@ -383,11 +392,17 @@ public class WCAv2 extends binMeta {
 			//System.out.println(toString());//UNCOMMENT IF YOU WANT TO SEE PROGRESSS
 		}
 		*/
-		System.out.println("End system : \n" + toString() + "\n With " + i + " Iterations");
+		System.out.println("End system : \n" + toString() + "\n With " + i + " Iterations in " + maxTime + " miliseconds");
 		
 		
 
 	}
+	
+	@Override
+	public Data getSolution() {
+		return pop.get(0).data; //messy
+	}
+	
 	//---------------------------------------------------------------------------------------------		
 	// STREAM CLASSSES // -------------------------------------------------------------------------------	
 	//---------------------------------------------------------------------------------------------			
@@ -459,10 +474,61 @@ public class WCAv2 extends binMeta {
 	}
 
 	public static void main(String[] args) {
-		Objective obj = new ColorPartition(20, 20);
-		WCAv2 bm = new WCAv2(obj.solutionSample(), obj, 2000);
-		bm.optimize();
+		
+		/*Objective obj = new ColorPartition(4, 14);
+		WCAv2 bm = new WCAv2(obj.solutionSample(), obj, 10000);
+		bm.optimize();*/
+		int ITMAX = 20000;  // number of iterations
 
+	      // BitCounter
+	      int n = 50;
+	      Objective obj = new BitCounter(n);
+	      Data D = obj.solutionSample();
+	      WCAv2 rw = new WCAv2(D,obj,ITMAX);
+	      System.out.println(rw);
+	      System.out.println("starting point : " + rw.getSolution());
+	      System.out.println("optimizing ...");
+	      rw.optimize();
+	      System.out.println(rw);
+	      System.out.println("solution : " + rw.getSolution());
+	      System.out.println();
+
+	      // Fermat
+	      int exp = 2;
+	      int ndigits = 10;
+	      obj = new Fermat(exp,ndigits);
+	      D = obj.solutionSample();
+	      rw = new WCAv2(D,obj,ITMAX);
+	      System.out.println(rw);
+	      System.out.println("starting point : " + rw.getSolution());
+	      System.out.println("optimizing ...");
+	      rw.optimize();
+	      System.out.println(rw);
+	      System.out.println("solution : " + rw.getSolution());
+	      Data x = new Data(rw.solution,0,ndigits-1);
+	      Data y = new Data(rw.solution,ndigits,2*ndigits-1);
+	      Data z = new Data(rw.solution,2*ndigits,3*ndigits-1);
+	      System.out.print("equivalent to the equation : " + x.posLongValue() + "^" + exp + " + " + y.posLongValue() + "^" + exp);
+	      if (rw.objValue == 0.0)
+	         System.out.print(" == ");
+	      else
+	         System.out.print(" ?= ");
+	      System.out.println(z.posLongValue() + "^" + exp);
+	      System.out.println();
+
+	      // ColorPartition
+	      n = 4;  int m = 14;
+	      ColorPartition cp = new ColorPartition(n,m);
+	      D = cp.solutionSample();
+	      rw = new WCAv2(D,cp,ITMAX);
+	      System.out.println(rw);
+	      System.out.println("starting point : " + rw.getSolution());
+	      System.out.println("optimizing ...");
+	      rw.optimize();
+	      System.out.println(rw);
+	      System.out.println("solution : " + rw.getSolution());
+	      cp.value(rw.solution);
+	      System.out.println("corresponding to the matrix :\n" + cp.show());
 	}
 
 }
